@@ -5,7 +5,7 @@ import re
 import pandas as pd
 from sqlalchemy import create_engine #db 연결을 위해
 from sqlalchemy.exc import IntegrityError # 중복 리뷰를 처리하기 위해
-from strength_enum import StrengthEnum # 강점 ids를 맵핑하기 위해 enum 클래스 생성하여 import 했음
+from .strength_enum import StrengthEnum # 강점 ids를 맵핑하기 위해 enum 클래스 생성하여 import 했음
 
 
 
@@ -137,7 +137,7 @@ def get_kakao_reviews(place_id, limit=10 ,max_page=100):
   return pd.DataFrame(all_reviews)
 
 
-#해당 지역 음식점을 4등분 하기
+#해당 지역을 4등분 하는 메서드
 def split_rect_into_4(rect):
   x1,y1,x2,y2 = map(int,rect.split(','))
   xm = (x1 + x2)  // 2
@@ -150,8 +150,24 @@ def split_rect_into_4(rect):
     f'{xm},{ym},{x2},{y2}', #우상
   ]
 
+# 해당 지역 음식점이 500개가 넘으면 4등분해서 500개 안넘을때까지 분할하면서 크롤링하는 메서드
+def recursive_crawling(rect,theme_id='c9',depth=0,max_depth=4):
+  df = get_kakao_restaurants(theme_id,rect,max_page=50)
+  print(f'[depth={depth}] {rect} ->{len(df)}개 크롤링 완료')
+  
+  if len(df) >= 500 and depth < max_depth:
+    print(f'데이터가 500개 초과되어 {rect} 세부 분할함')
+    sub_rects = split_rect_into_4(rect)
+    dfs =[]
+    for sub in sub_rects:
+      dfs.append(recursive_crawling(sub,theme_id,depth=depth+1,max_depth=max_depth))
+    return pd.concat(dfs,ignore_index=True) #ignore_index= True 는 데이터프레임 합칠때 index를 0부터 새로 부여
+  else:
+    return df
 
 
+
+#지도 구역데이터(full_rect)를 매개변수로 받아서 전체 크롤링하는 메서드
 def full_crawling(full_rect,theme_id='c9'):
 
   #데이터 베이스 연결 
@@ -162,36 +178,49 @@ def full_crawling(full_rect,theme_id='c9'):
   db = 'local_kakao_placeDB'
   engine = create_engine(f'mysql+pymysql://{user}:{password}@{host}:{port}/{db}?charset=utf8mb4')
 
-  # 지역 4등분
-  rects = split_rect_into_4(full_rect)
-  all_places = []
+  #전체 지역을 재귀적으로 크롤링
+  print(f'\n 전체 구역 {full_rect}에서 크롤링 시작')
+  all_places = recursive_crawling(full_rect,theme_id=theme_id)
 
-  for i , rect in enumerate(rects):
-    print(f'\n [rect {i +1 }/4] 범위: {rect}')
-    #1/4 지역의 음식점 데이터 저장
-    partial_place = get_kakao_restaurants('c9',rect,max_page=50)
-    print(f'{len(partial_place)}개 크롤링 완료')
-    all_places.append(partial_place)
-    time.sleep(1) 
-
-  #병합
-  df_places = pd.concat(all_places, ignore_index=True)
   #중복제거
-  df_places.drop_duplicates(subset='place_id',inplace=True)
+  all_places.drop_duplicates(subset='place_id',inplace=True)
+
+  #기존 DB 조회해서 중복되는 데이터 제외
+  try:
+    restaurant_list = pd.read_sql("SELECT place_id FROM restaurants",con=engine)
+    place_id_list = set(restaurant_list['place_id'].astype(str)) #astype은 자료타입을 변환한다. 즉 str로 변환한다.
+    all_places = all_places[~all_places['place_id'].astype(str).isin(place_id_list)]# ~는 not을 의미한다. 
+    print(f'신규 음식점 {len(all_places)}개만 필터링 완료')
+  except Exception as e :
+    print(f'기존 음식점 조회 실패: {e}')
+    place_id_list = set()
+
 
   #DB 저장
-  try:
-    df_places.to_sql('restaurants', engine, if_exists='append', index=False)
-  except IntegrityError as e1:
-    print(f"음식점 중복 리뷰 무시  {e1}")
+  if not all_places.empty:
+    try:
+      all_places.to_sql('restaurants', engine, if_exists='append', index=False)
+    except IntegrityError as e1:
+      print(f"음식점 중복 리뷰 무시  {e1}")
 
   
   # 리뷰데이터 저장
-  for i , p_id in enumerate (df_places['place_id']): # 몇번째 음식점 처리중인지 확인을 위해 enumerate를 씀
+  for i , p_id in enumerate (all_places['place_id']): # 몇번째 음식점 처리중인지 확인을 위해 enumerate를 씀
     try:
       df_reviews = get_kakao_reviews(p_id,limit=20)
+
       if df_reviews.empty:
         print(f'{p_id}에 대한 리뷰 없음')
+        continue
+
+      try:
+        review_list = pd.read_sql(f"SELECT review_id FROM reviews WHERE place_id = '{p_id}'",con=engine)
+        review_ids = set(review_list['review_id'].astype(str))
+        df_reviews = df_reviews[~df_reviews['review_id'].astype(str).isin(review_ids)]
+      except Exception as e:
+        print(f'기존 리뷰 조회 실패(전체 저장): {e}')
+      if df_reviews.empty:
+        print(f'{p_id}의 리뷰는 모두 이미 있음')
         continue
 
       df_reviews['place_id'] = p_id
@@ -203,7 +232,7 @@ def full_crawling(full_rect,theme_id='c9'):
       except IntegrityError as e2:
         print(f'리뷰 중복 리뷰 무시 {e2}')
         continue
-      print(f'[{i + 1}/{len(df_places)}] {p_id} - 리뷰 {len(df_reviews)}개 저장 완료')
+      print(f'[{i + 1}/{len(all_places)}] {p_id} - 리뷰 {len(df_reviews)}개 저장 완료')
       time.sleep(0.5)
 
     except Exception as e:
