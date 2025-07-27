@@ -5,7 +5,8 @@ import re
 import pandas as pd
 from sqlalchemy import create_engine #db 연결을 위해
 from sqlalchemy.exc import IntegrityError # 중복 리뷰를 처리하기 위해
-from .strength_enum import StrengthEnum # 강점 ids를 맵핑하기 위해 enum 클래스 생성하여 import 했음
+from strength_enum import StrengthEnum # 강점 ids를 맵핑하기 위해 enum 클래스 생성하여 import 했음
+
 
 
 
@@ -168,15 +169,7 @@ def recursive_crawling(rect,theme_id='c9',depth=0,max_depth=4):
 
 
 #지도 구역데이터(full_rect)를 매개변수로 받아서 전체 크롤링하는 메서드
-def full_crawling(full_rect,theme_id='c9'):
-
-  #데이터 베이스 연결 
-  user = 'root'
-  password = 'test1234'
-  host = 'localhost'
-  port = 3306
-  db = 'local_kakao_placeDB'
-  engine = create_engine(f'mysql+pymysql://{user}:{password}@{host}:{port}/{db}?charset=utf8mb4')
+def full_crawling(full_rect,engine,theme_id='c9'):
 
   #전체 지역을 재귀적으로 크롤링
   print(f'\n 전체 구역 {full_rect}에서 크롤링 시작')
