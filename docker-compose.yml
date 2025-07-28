@@ -19,7 +19,9 @@ services:
   crawler:
     env_file:
       - .env
-    build: ./crawler
+    build:
+      context: .
+      dockerfile: ./crawler/Dockerfile
     container_name: kakao_crawler
     depends_on:
       - db
@@ -29,8 +31,24 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${USER_PASSWORD}
       DB_NAME: ${DATABASE}
-      RUN_ENV: docker
-    command: ["python", "crawling_app.py"]
+    # command: ["python", "crawler/crawling_app.py"]  #이렇게 하면 한번 실행되고 컨테이너 종료됨.
+
+  analyzer:
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: ./analyzer/Dockerfile
+    container_name: kakao_analyzer
+    depends_on:
+      - db
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${USER_PASSWORD}
+      DB_NAME: ${DATABASE}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
 
 volumes:
   db_data:

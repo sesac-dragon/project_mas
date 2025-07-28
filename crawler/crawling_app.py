@@ -1,13 +1,9 @@
 import time
 import pymysql
 from kakaoMap_crawling import full_crawling
-from db_table import Base
-import os,sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from db_connection import get_engine
-
-if os.getenv("RUN_ENV") == "host":
-    os.environ["DB_HOST"] = "127.0.0.1"
+import os
+from common.db_connection import get_engine
+from common.db_table import Base
 
 #컨테이너에서 DB가 준비 될 시간을 기다리기 위해
 def wait_for_mysql():
@@ -23,7 +19,7 @@ def wait_for_mysql():
       print("DB 연결성공")
       return
     except Exception as e:
-      print(f"DB 연결 대기 중 ...({i+1}/30)")
+      print(f"DB 연결 대기 중 ...({i+1}/30) - host {os.getenv('DB_HOST')}")
       time.sleep(3)
   raise Exception("DB에 연결할 수 없습니다.")
 

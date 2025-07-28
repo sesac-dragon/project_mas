@@ -1,22 +1,115 @@
-import openai
-import pandas as pd
+from openai import OpenAI
 from sqlalchemy.orm import sessionmaker
-from db_connection import get_engine
-from crawler.db_table import Review, ReviewAnalysis
+from common.db_connection import get_engine
+from common.db_table import Review, ReviewAnalysis
 from datetime import datetime,timezone
-import time
-dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 from dotenv import load_dotenv
+from datetime import datetime
+import pytz
 import os
 
 load_dotenv()
-
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key = os.getenv("OPENAI_API_KEY"))
 
 # DB 연결 
 engine = get_engine()
 Session = sessionmaker(bind=engine)
-session = Session()
+
+
+#gpt에 보낼 prompt 문자열을 구성
+#ChatCompletion 생성 함수 (GPT와 대화하듯 요청)
+#user가 나라고 생각하고, assistant가 gpt라 생각하면 될듯?
+#temperature=0.7: 생성 결과의 창의성/무작위성 조절값(0.0에 가까울수록 정확하고 일관된 결과)
+def analyze_sentiment(text):
+  prompt = f"""
+  1. 감정을 '긍정', '부정', '중립' 중 하나로 정확히 분류해줘.  
+  2. 리뷰에서 핵심적인 감성 키워드 3개를 추출해줘.  
+    - 명사 또는 형용사 위주로, 감정을 표현하거나 특징을 나타내는 단어를 골라줘.  
+    - 키워드는 한국어로 출력해줘.  
+
+  예시 응답 형식:
+  감정 : 긍정
+  키워드 : ["친절", "가성비" , "맛있다"]
+
+  리뷰: "{text}"
+  """
+  try:
+    response = client.chat.completions.create(
+      model="gpt-4o",
+      messages=[
+        {"role": "user", "content": prompt}
+      ],
+      temperature=0.7
+    )
+    return response.choices[0].message.content.strip()
+  except Exception as e:
+    print(f"[API 에러] {e}")
+    return None
+  
+
+def parse_response(response):
+  try:
+    lines = response.strip().split('\n')
+    sentiment_line = next(line for line in lines if '감정' in line)
+    keywords_line = next(line for line in lines if "키워드" in line)
+
+    sentiment = sentiment_line.split(":")[1].strip()
+    keywords = eval(keywords_line.split(":")[1].strip()) # 문자열 -> 리스트
+
+    return sentiment, keywords
+  except Exception as e:
+    print(f"[파싱 에러] {e}")
+    return None , None
+  
+def run_analysis():
+  #트랜스미션 단위로 db접속 함.
+  session = Session()
+  try:
+    # 이미 분석된 리뷰 제외하고 최대 50개 가져오기
+    subquery = session.query(ReviewAnalysis.review_id)
+    #리뷰 테이블에서 데이터 조회해서/ filter는 조건문/ ~는 not 을 의미함/ .all()은 리스트형태로 반환함
+    reviews = session.query(Review).filter(~Review.review_id.in_(subquery)).limit(50).all()
+
+    print(f"[INFO] {len(reviews)}건의 리뷰를 분석합니다.")
+    for review in reviews:
+      if not review.contents:
+        print(f"[SKIP] 리뷰 {review.review_id}: 내용 없음")
+        continue
+
+      print(f"[분석 중] 리뷰 ID: {review.review_id}")
+      response = analyze_sentiment(review.contents)
+      if not response:
+        print(f"[SKIP] 리뷰 {review.review_id}: GPT 응답 실패")
+        continue
+
+      sentiment, keywords = parse_response(response)
+      if not sentiment or not keywords:
+        print(f"[SKIP] 리뷰 {review.review_id}: 파싱 실패")
+        continue
+      KST = pytz.timezone("Asia/Seoul") #한국시간 설정을 위해
+
+      analysis = ReviewAnalysis(
+        review_id=review.review_id,
+        place_id=review.place_id,
+        sentiment=sentiment,
+        keywords=", ".join(keywords),
+        model_used="gpt-4o",
+        created_at=datetime.now(KST)
+      )
+
+      try:
+        session.add(analysis)
+        session.commit()
+        print(f"[✅ 저장 완료] 리뷰 {review.review_id}")
+      except Exception as db_err:
+        print(f"[❌ DB 오류] 리뷰 {review.review_id}: {db_err}")
+        session.rollback()
+
+  finally:
+    session.close()
+
+if __name__ == "__main__":
+  run_analysis()
 
 
 

@@ -2,7 +2,7 @@ requests
 pandas
 sqlalchemy
 pymysql
-openai
+openai>=1.97.1
 matplotlib
 seaborn
 streamlit
