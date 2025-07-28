@@ -29,6 +29,7 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${USER_PASSWORD}
       DB_NAME: ${DATABASE}
+      RUN_ENV: docker
     command: ["python", "crawling_app.py"]
 
 volumes:

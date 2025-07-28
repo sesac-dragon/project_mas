@@ -2,9 +2,14 @@ import time
 import pymysql
 from kakaoMap_crawling import full_crawling
 from db_table import Base
-from sqlalchemy import create_engine
-import os
+import os,sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from db_connection import get_engine
 
+if os.getenv("RUN_ENV") == "host":
+    os.environ["DB_HOST"] = "127.0.0.1"
+
+#컨테이너에서 DB가 준비 될 시간을 기다리기 위해
 def wait_for_mysql():
   for i in range(30):
     try:
@@ -22,21 +27,13 @@ def wait_for_mysql():
       time.sleep(3)
   raise Exception("DB에 연결할 수 없습니다.")
 
-wait_for_mysql() # 함수 호출
+if __name__ == "__main__":
+  wait_for_mysql()
+  engine = get_engine()
 
+  # DB에 테이블이 없을 경우 자동 생성
+  Base.metadata.create_all(engine)
 
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("USER_PASSWORD")
-DB_HOST = os.getenv("DB_HOST")
-DB_PORT = os.getenv("DB_PORT")
-DB_NAME = os.getenv("DATABASE")
-
-url = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4"
-
-engine = create_engine(url)
-
-# DB에 테이블이 없을 경우 자동 생성
-Base.metadata.create_all(engine)
-
-full_rect = '487005,1116407,493715,1122797'
-full_crawling(full_rect,engine)
+  # 전체 사각형 범위 설정
+  full_rect = '487005,1116407,493715,1122797'
+  full_crawling(full_rect,engine)
