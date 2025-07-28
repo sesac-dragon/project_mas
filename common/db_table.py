@@ -1,9 +1,13 @@
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer , String, Float, BigInteger, Text , DateTime ,ForeignKey ,Double
 from sqlalchemy.orm import relationship
-from datetime import datetime,timezone
+from datetime import datetime
+import pytz #한국시간 설정위해서
 
 Base = declarative_base()
+
+#한국시간 설정을 위해
+KST = pytz.timezone("Asia/Seoul") 
 
 class Restaurant(Base):
   __tablename__ = 'restaurants'
@@ -50,10 +54,10 @@ class ReviewAnalysis(Base):
   analysis_id = Column(BigInteger,primary_key=True,autoincrement=True)
   review_id = Column(BigInteger, ForeignKey('reviews.review_id', ondelete='CASCADE'), nullable=False)
   place_id = Column(String(20),ForeignKey('restaurants.place_id', ondelete='CASCADE'))
-  sentiment = Column(String(10)) #긍정/부정/중립 중 하나
+  sentiment = Column(String(10),nullable=False) #긍정/부정/중립 중 하나
   keywords = Column(Text)
   model_used = Column(String(50))
-  #lambda로 감싸야 매번 현재 시간을 넣어준다.
-  created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc)) 
+  #lambda로 해야 매번 시간을 넣음(UTC 기준)
+  created_at = Column(DateTime, default=lambda: datetime.now(KST)) 
   #관계 정의 (review 객체에서 review.analysis하면 바로 접근가능/ uselist=False는 1:1 관계라고 말하는것 )
   review = relationship("Review" , backref="analysis",uselist=False)
