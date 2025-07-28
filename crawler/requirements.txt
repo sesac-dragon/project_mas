@@ -2,3 +2,10 @@ requests
 pandas
 sqlalchemy
 pymysql
+openai
+matplotlib
+seaborn
+streamlit
+wordcloud
+scikit-learn
+python-dotenv
