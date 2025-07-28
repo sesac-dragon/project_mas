@@ -8,6 +8,13 @@ from sqlalchemy.exc import IntegrityError # 중복 리뷰를 처리하기 위해
 from strength_enum import StrengthEnum # 강점 ids를 맵핑하기 위해 enum 클래스 생성하여 import 했음
 
 
+HEADERS = {
+  'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
+    'referer':'https://map.kakao.com/',
+    'origin':'https://place.map.kakao.com',
+    'pf':'web',
+    'priority':'u=1, i',
+}
 
 
 #음식점 크롤링 하는 메서드
@@ -27,9 +34,7 @@ def get_kakao_restaurants(theme_id,rect,max_page=50):
       'rect':rect
     }
 
-    headers = {'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36','referer':'https://map.kakao.com/'}
-
-    jsonp = requests.get(url,params=params,headers=headers)
+    jsonp = requests.get(url,params=params,headers=HEADERS)
     if jsonp.status_code != 200:
       print(f'{cpage}페이지에서 에러가 발생했습니다.')
       break
@@ -66,7 +71,7 @@ def get_kakao_restaurants(theme_id,rect,max_page=50):
         'rating_count':p.get('rating_count',0),
         'img':p.get('img')
       })
-    print(f'capage={cpage} ({len(all_places)}개 누적)')
+    print(f'cpage={cpage} ({len(all_places)}개 누적)')
     time.sleep(0.2)
   return pd.DataFrame(all_places)
 
@@ -80,7 +85,6 @@ def get_kakao_reviews(place_id, limit=10 ,max_page=100):
   all_reviews = []
   previous_last_review_id = None
   page = 1
-  strength_maping = {}
 
   while True:
     url = f'https://place-api.map.kakao.com/places/tab/reviews/kakaomap/{place_id}'
@@ -95,16 +99,9 @@ def get_kakao_reviews(place_id, limit=10 ,max_page=100):
     if previous_last_review_id:
       params['previous_last_review_id'] = previous_last_review_id
     
-    header = {
-      'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
-        'referer':'https://map.kakao.com/',
-        'origin':'https://place.map.kakao.com',
-        'pf':'web',
-        'priority':'u=1, i',
-        'referer':'https://place.map.kakao.com/'
-    }
 
-    resp = requests.get(url,params=params,headers=header)
+
+    resp = requests.get(url,params=params,headers=HEADERS)
 
     if resp.status_code !=200:
       print(f'Error {resp.status_code} at page {page}에서 에러가 났습니다.' )
@@ -123,7 +120,7 @@ def get_kakao_reviews(place_id, limit=10 ,max_page=100):
         'contents':r.get('contents',''), # r에 'contents' key가 없으면 빈 문자열 '' 반환(default 생략하면 None)
         'registered_at':r.get('registered_at'),
         'updated_at':r.get('updated_at'),
-        'strength':[StrengthEnum.get_strength_by_id(i) for i in r.get('strength_ids', [])] #enum 클래스를 가져와서 맵핑함
+        'strength':','.join([StrengthEnum.get_strength_by_id(i) for i in r.get('strength_ids', [])]) #enum 클래스를 가져와서 맵핑함
       })
 
     if not data.get('has_next',False):
@@ -198,7 +195,7 @@ def full_crawling(full_rect,engine,theme_id='c9'):
 
   
   # 리뷰데이터 저장
-  for i , p_id in enumerate (all_places['place_id']): # 몇번째 음식점 처리중인지 확인을 위해 enumerate를 씀
+  for i , p_id in enumerate (all_places['place_id'],1): # 몇번째 음식점 처리중인지 확인을 위해 enumerate를 씀
     try:
       df_reviews = get_kakao_reviews(p_id,limit=20)
 
@@ -217,15 +214,13 @@ def full_crawling(full_rect,engine,theme_id='c9'):
         continue
 
       df_reviews['place_id'] = p_id
-      #리스트를 문자열로 , 로 구분해서넣음
-      df_reviews['strength'] = df_reviews['strength'].apply(lambda x: ','.join(x)) 
 
       try:
         df_reviews.to_sql('reviews',engine,if_exists='append',index=False)
       except IntegrityError as e2:
         print(f'리뷰 중복 리뷰 무시 {e2}')
         continue
-      print(f'[{i + 1}/{len(all_places)}] {p_id} - 리뷰 {len(df_reviews)}개 저장 완료')
+      print(f'[{i}/{len(all_places)}] {p_id} - 리뷰 {len(df_reviews)}개 저장 완료')
       time.sleep(0.5)
 
     except Exception as e:

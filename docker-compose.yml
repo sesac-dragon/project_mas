@@ -1,5 +1,6 @@
-version: '3.9'
+# version: '3.9'  이제 버전 필요없어 짐
 
+#컨테이너 3개 넣은 이유는 그래야 docker compose가 같은 네트워크 환경으로 잡아서 서비스명으로도 연결해줌
 services:
   db:
     image: mariadb:10.6
