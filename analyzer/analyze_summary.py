@@ -1,10 +1,11 @@
 from sqlalchemy.orm import sessionmaker
 from common.db_connection import get_engine
-from common.db_table import ReviewAnalysis
-import pandas as pd
+from common.db_table import ReviewAnalysis, Base
 from collections import Counter
 from sqlalchemy import func
 from common.db_table import PlaceSummary
+from datetime import datetime
+import pandas as pd
 import pytz
 
 
@@ -12,6 +13,7 @@ def summarize_analysis():
 
   #DB 연결
   engine = get_engine()
+  Base.metadata.create_all(engine) #테이블 없을 경우 자동 생성
   Session = sessionmaker(bind=engine)
   session = Session()
 
@@ -60,9 +62,30 @@ def save_summary(summary_df):
   KST = pytz.timezone("Asia/Seoul")
 
   try:
-    for _, row in summary_df.iterrows()
+    for _, row in summary_df.iterrows():
+      summary = PlaceSummary(
+        place_id = row['place_id'],
+        positive=int(row['긍정']),
+        negative=int(row['부정']),
+        neutral=int(row['중립']),
+        total=int(row['total']),
+        positive_ratio=float(row['긍정비율']),
+        top_keywords=row['대표 키워드'],
+        updated_at=datetime.now(KST)
+      )
+      session.merge(summary)
+    session.commit()
+    print(f"[저장완료] {len(summary_df)}개 저장됨")
+  except Exception as e:
+    session.rollback()
+    print((f"[저장실패] {e}"))
+  finally:
+    session.close()
+
+
 
 if __name__ == "__main__":
   summary_df = summarize_analysis()
   print(summary_df.head())
+  save_summary(summary_df)
 

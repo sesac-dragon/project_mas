@@ -21,6 +21,7 @@ COPY crawler ./crawler
 
 # 6. 의존성 파일 카피
 COPY requirements.txt .
+
 # 7. 의존성 설치
 RUN pip install -r requirements.txt
 
