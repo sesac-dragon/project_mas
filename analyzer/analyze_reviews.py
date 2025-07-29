@@ -103,7 +103,7 @@ def run_analysis(limit=1000):
         print(f"[SKIP] 리뷰 {review.review_id}: 감정 파싱 실패")
         continue
       
-      time.sleep(1.2)
+      time.sleep(2)
 
 
 

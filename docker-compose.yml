@@ -50,5 +50,25 @@ services:
       DB_NAME: ${DATABASE}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
 
+  dashboard:
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: ./visualize/Dockerfile
+    container_name: kakao_dashboard
+    depends_on:
+      - db
+    ports:
+      - "8501:8501"
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DATABASE}
+
+
+
 volumes:
   db_data:
