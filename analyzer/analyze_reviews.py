@@ -5,8 +5,7 @@ from common.db_table import Review, ReviewAnalysis
 from datetime import datetime,timezone
 from dotenv import load_dotenv
 from datetime import datetime
-import pytz
-import os
+import pytz,os,time
 
 load_dotenv()
 client = OpenAI(api_key = os.getenv("OPENAI_API_KEY"))
@@ -29,7 +28,7 @@ def analyze_sentiment(text):
 
   예시 응답 형식:
   감정 : 긍정
-  키워드 : ["친절", "가성비" , "맛있다"]
+  키워드 : "친절", "가성비" , "맛있다"
 
   리뷰: "{text}"
   """
@@ -53,22 +52,24 @@ def parse_response(response):
     sentiment_line = next(line for line in lines if '감정' in line)
     keywords_line = next(line for line in lines if "키워드" in line)
 
+    #제목은 버리고 내용만 가져옴
     sentiment = sentiment_line.split(":")[1].strip()
-    keywords = eval(keywords_line.split(":")[1].strip()) # 문자열 -> 리스트
+    keywords_raw = keywords_line.split(":")[1].strip()
+    keywords = [kw.strip() for kw in keywords_raw.split(',') if kw.strip()]
 
     return sentiment, keywords
   except Exception as e:
     print(f"[파싱 에러] {e}")
     return None , None
   
-def run_analysis():
+def run_analysis(limit=1000):
   #트랜스미션 단위로 db접속 함.
   session = Session()
   try:
-    # 이미 분석된 리뷰 제외하고 최대 50개 가져오기
+    # 이미 분석된 리뷰 제외하고 최대 1000개 가져오기
     subquery = session.query(ReviewAnalysis.review_id)
     #리뷰 테이블에서 데이터 조회해서/ filter는 조건문/ ~는 not 을 의미함/ .all()은 리스트형태로 반환함
-    reviews = session.query(Review).filter(~Review.review_id.in_(subquery)).limit(50).all()
+    reviews = session.query(Review).filter(~Review.review_id.in_(subquery)).limit(limit).all()
 
     print(f"[INFO] {len(reviews)}건의 리뷰를 분석합니다.")
     for review in reviews:
@@ -86,6 +87,11 @@ def run_analysis():
       if not sentiment or not keywords:
         print(f"[SKIP] 리뷰 {review.review_id}: 파싱 실패")
         continue
+      
+      time.sleep(1.2)
+
+
+
       KST = pytz.timezone("Asia/Seoul") #한국시간 설정을 위해
 
       analysis = ReviewAnalysis(
@@ -109,7 +115,7 @@ def run_analysis():
     session.close()
 
 if __name__ == "__main__":
-  run_analysis()
+  run_analysis(limit=1000)
 
 
 

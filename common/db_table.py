@@ -47,7 +47,7 @@ class Review(Base):
   # 관계 정의 (테이블에 외래키가 있으므로 외래키가 참조하는 테이블이 1:N에서 1이다.)
   restaurant = relationship("Restaurant", back_populates="reviews")
 
-
+# 리뷰 감성 분석
 class ReviewAnalysis(Base):
   __tablename__ = 'review_analyses'
   
@@ -61,3 +61,15 @@ class ReviewAnalysis(Base):
   created_at = Column(DateTime, default=lambda: datetime.now(KST)) 
   #관계 정의 (review 객체에서 review.analysis하면 바로 접근가능/ uselist=False는 1:1 관계라고 말하는것 )
   review = relationship("Review" , backref="analysis",uselist=False)
+
+class PlaceSummary(Base):
+  __tablename__ = 'place_summary'
+
+  place_id = Column(String(20), ForeignKey('restaurants.place_id', ondelete='CASCADE'), primary_key=True)
+  positive = Column(Integer,default=0)
+  negative = Column(Integer,default=0)
+  neutral = Column(Integer,default=0)
+  total = Column(Integer,default=0)
+  positive_ratio = Column(Float, default=0.0)
+  top_keywords = Column(String(255))
+  updated_at = Column(DateTime, default= lambda: datetime.now(KST))
