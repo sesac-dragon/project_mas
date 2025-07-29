@@ -12,7 +12,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${ROOT_PASSWORD}
       MYSQL_DATABASE: ${DATABASE}
       MYSQL_USER: ${USER}
-      MYSQL_PASSWORD: ${USER_PASSWORD}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
       - db_data:/var/lib/mysql
 
@@ -29,7 +29,7 @@ services:
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
       DB_USER: ${DB_USER}
-      DB_PASSWORD: ${USER_PASSWORD}
+      DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DATABASE}
     # command: ["python", "crawler/crawling_app.py"]  #이렇게 하면 한번 실행되고 컨테이너 종료됨.
 
@@ -46,7 +46,7 @@ services:
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
       DB_USER: ${DB_USER}
-      DB_PASSWORD: ${USER_PASSWORD}
+      DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DATABASE}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
 

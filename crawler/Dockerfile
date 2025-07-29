@@ -1,5 +1,5 @@
 # 1. Python 3.10 기반 이미지 사용
-FROM python:3.10-slim
+FROM python:3.10
 
 # 2. 작업 디렉토리 생성
 WORKDIR /app
@@ -15,12 +15,15 @@ RUN apt-get update && apt-get install -y cron tzdata && \
 
 # 4. 공통 코드 복사
 COPY common ./common
+# .env 파일 복사
+COPY .env /app/.env
 
 # 5. 로컬 코드 복사 (현재 context를 잡고 있는 폴더 기준)
 COPY crawler ./crawler
 
 # 6. 의존성 파일 카피
 COPY requirements.txt .
+
 # 7. 의존성 설치
 RUN pip install -r requirements.txt
 

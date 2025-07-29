@@ -6,6 +6,9 @@ import pandas as pd
 from sqlalchemy.exc import IntegrityError # 중복 리뷰를 처리하기 위해
 from strength_enum import StrengthEnum # 강점 ids를 맵핑하기 위해 enum 클래스 생성하여 import 했음
 
+from dotenv import load_dotenv
+load_dotenv(dotenv_path="/app/.env")#crontab때문에 명시적으로 .env 파일 경로 지정
+
 
 HEADERS = {
   'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
