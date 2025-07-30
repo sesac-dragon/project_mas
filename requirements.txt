@@ -6,6 +6,10 @@ openai>=1.97.1
 matplotlib
 seaborn
 streamlit
+streamlit-folium
+folium
 wordcloud
 scikit-learn
 python-dotenv
+altair
+scikit-learn

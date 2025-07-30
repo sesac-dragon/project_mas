@@ -7,11 +7,15 @@ WORKDIR /app
 # 3. PYTHONPATH 설정
 ENV PYTHONPATH=/app
 
-# 4. 시간대 KST 고정
+# 4. 시간대 KST 고정 및 워드클라우드 한글폰트(Nanum) 설치
 ENV TZ=Asia/Seoul
-RUN apt-get update && apt-get install -y tzdata && \
-    ln -snf /usr/share/zoneinfo/Asia/Seoul /etc/localtime && \
-    echo "Asia/Seoul" > /etc/timezone
+RUN apt-get update && apt-get install -y \
+    tzdata \
+    fonts-nanum \
+    && ln -snf /usr/share/zoneinfo/Asia/Seoul /etc/localtime \
+    && echo "Asia/Seoul" > /etc/timezone \
+    && fc-cache -fv \
+    && apt-get clean
 
 # 5. 공통 코드 복사
 COPY common ./common
